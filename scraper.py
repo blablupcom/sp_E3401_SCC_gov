@@ -6,7 +6,6 @@ import os
 import re
 import scraperwiki
 import urllib2
-import requests
 from datetime import datetime
 from bs4 import BeautifulSoup
 
@@ -86,10 +85,14 @@ def convert_mth_strings ( mth_string ):
 #### VARIABLES 1.0
 
 entity_id = "E3401_SCC_gov"
-urls = ["http://www.stoke.gov.uk/ccm/navigation/council-and-democracy/finance/transparency-2015/", "http://www.stoke.gov.uk/ccm/navigation/council-and-democracy/finance/transparency-2014/", "http://www.stoke.gov.uk/ccm/navigation/council-and-democracy/finance/transparency-2013/", "http://www.stoke.gov.uk/ccm/navigation/council-and-democracy/finance/transparency-2012/", "http://www.stoke.gov.uk/ccm/navigation/council-and-democracy/finance/transparency/"]
+# urls = ["http://www.stoke.gov.uk/ccm/navigation/council-and-democracy/finance/transparency-2015/", "http://www.stoke.gov.uk/ccm/navigation/council-and-democracy/finance/transparency-2014/", "http://www.stoke.gov.uk/ccm/navigation/council-and-democracy/finance/transparency-2013/", "http://www.stoke.gov.uk/ccm/navigation/council-and-democracy/finance/transparency-2012/", "http://www.stoke.gov.uk/ccm/navigation/council-and-democracy/finance/transparency/"]
+# errors = 0
+# data = []
+# url = 'http://example.com'
+
+url = 'http://www.stoke.gov.uk/ccm/navigation/council-and-democracy/finance/'
 errors = 0
 data = []
-url = 'http://example.com'
 
 #### READ HTML 1.0
 
@@ -98,53 +101,31 @@ soup = BeautifulSoup(html, 'lxml')
 
 #### SCRAPE DATA
 
-for url in urls:
-    html = urllib2.urlopen(url)
-    soup = BeautifulSoup(html, 'lxml')
-    block = soup.find('li', 'expanded').find('ul')
+blocks = soup.find_all('a', href=True)
+link_urls = set()
+for block in blocks:
+     trans_link_csv = 'http://www.stoke.gov.uk' +block['href']
+     if '/council-and-democracy/finance/transparency' in trans_link_csv:
+        link_urls.add(trans_link_csv)
+for link_url in link_urls:
+    html_csv = urllib2.urlopen(link_url)
+    soup_csv = BeautifulSoup(html_csv, 'lxml')
+    block = soup_csv.find('li', 'expanded').find('ul')
     links = block.find_all('a')
     for link in links:
          link_csv = 'http://www.stoke.gov.uk' +link['href']
          if 'oid' in link_csv:
+             csvtext = link.text
              links_csv = link_csv
              html_csv = urllib2.urlopen(links_csv)
              soup_csv = BeautifulSoup(html_csv, 'lxml')
-             block_csv = soup_csv.find('li', 'attachment-link').find_all('a')[-1]
-             csvfiles =  soup_csv.find('li', 'attachment-link').text
-             if 'Tran' in csvfiles[:4]:
-                if 'Transparency' in csvfiles and '.csv' in csvfiles:
-                    url = 'http://www.stoke.gov.uk' +block_csv['href'].strip()
-                    csvfiles = csvfiles.split('Transparency Report')[-1].strip().split(' ')
-                    csvYr = csvfiles[1][:4]
-                    csvMth = csvfiles[0][:3]
-                    csvMth = convert_mth_strings(csvMth.upper())
-                    data.append([csvYr, csvMth, url])
-                if 'Transparency' in csvfiles and '.pdf' in csvfiles:
-                     block_csv = soup_csv.find('li', 'attachment-link').find_next('li', 'attachment-link').find_all('a')[-1]
-                     url = 'http://www.stoke.gov.uk' +block_csv['href'].strip()
-                     csvfiles = csvfiles.split('Transparency Report')[-1].strip().split(' ')
-                     csvYr = csvfiles[1][:4]
-                     csvMth = csvfiles[0][:3]
-                     print csvMth, csvYr
-                     csvMth = convert_mth_strings(csvMth.upper())
-                     data.append([csvYr, csvMth, url])
-
-             else:
-                 if 'Transparency' in csvfiles and '.csv' in csvfiles:
-                    url = 'http://www.stoke.gov.uk' +block_csv['href'].strip()
-                    csvfiles = csvfiles.split('Transparency')[0].strip()
-                    csvYr = csvfiles[-4:]
-                    csvMth = csvfiles[:3]
-                    csvMth = convert_mth_strings(csvMth.upper())
-                    data.append([csvYr, csvMth, url])
-                 if 'Transparency' in csvfiles and '.pdf' in csvfiles:
-                     block_csv = soup_csv.find('li', 'attachment-link').find_next('li', 'attachment-link').find_all('a')[-1]
-                     url = 'http://www.stoke.gov.uk' +block_csv['href'].strip()
-                     csvfiles = csvfiles.split('Transparency')[0].strip()
-                     csvYr = csvfiles[-4:]
-                     csvMth = csvfiles[:3]
-                     print csvMth, csvYr
-                     csvMth = convert_mth_strings(csvMth.upper())
+             csvfiles = soup_csv.find_all('li', 'attachment-link')
+             for csvfile in csvfiles:
+                 if '.csv' in csvfile.text:
+                     block_csv = csvfile.find('a', attrs={'title':'save file to your computer'})
+                     url = 'http://www.stoke.gov.uk' + block_csv['href'].strip()
+                     csvYr = csvtext.split()[0].split('-')[0]
+                     csvMth = csvtext.split()[0].split('-')[1]
                      data.append([csvYr, csvMth, url])
 
 
@@ -169,4 +150,3 @@ if errors > 0:
 
 
 #### EOF
-
